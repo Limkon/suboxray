@@ -1,0 +1,203 @@
+{
+	"dns":	{
+		"disableFallback":	true,
+		"servers":	[{
+				"address":	"https://8.8.8.8/dns-query",
+				"domains":	[],
+				"queryStrategy":	""
+			}, {
+				"address":	"localhost",
+				"domains":	["geosite:cn"],
+				"queryStrategy":	""
+			}],
+		"tag":	"dns"
+	},
+	"inbounds":	[{
+			"listen":	"127.0.0.1",
+			"port":	10808,
+			"protocol":	"socks",
+			"settings":	{
+				"udp":	true
+			},
+			"sniffing":	{
+				"destOverride":	["http", "tls", "quic"],
+				"enabled":	true,
+				"metadataOnly":	false,
+				"routeOnly":	true
+			},
+			"tag":	"socks-in"
+		}, {
+			"listen":	"127.0.0.1",
+			"port":	10809,
+			"protocol":	"http",
+			"sniffing":	{
+				"destOverride":	["http", "tls", "quic"],
+				"enabled":	true,
+				"metadataOnly":	false,
+				"routeOnly":	true
+			},
+			"tag":	"http-in"
+		}],
+	"log":	{
+		"loglevel":	"warning"
+	},
+	"outbounds":	[{
+			"domainStrategy":	"AsIs",
+			"protocol":	"vless",
+			"settings":	{
+				"vnext":	[{
+						"address":	"104.16.124.80",
+						"port":	443,
+						"users":	[{
+								"encryption":	"none",
+								"id":	"214c86b5-cdab-4be7-9767-4828e8b2d871"
+							}]
+					}]
+			},
+			"streamSettings":	{
+				"network":	"ws",
+				"security":	"tls",
+				"tlsSettings":	{
+					"fingerprint":	"random",
+					"serverName":	"www.mvp.abrdns.com",
+					"fragment":	{
+						"packets":	"tlshello",
+						"length":	"10-20",
+						"interval":	"10"
+					}
+				},
+				"wsSettings":	{
+					"headers":	{
+						"Host":	"www.mvp.abrdns.com"
+					},
+					"path":	"/?ed=2560"
+				}
+			},
+			"tag":	"vless-mvp.abrdns.com"
+		}, {
+			"domainStrategy":	"AsIs",
+			"protocol":	"trojan",
+			"settings":	{
+				"servers":	[{
+						"address":	"104.16.124.80",
+						"port":	443,
+						"password":	"214c86b5-cdab-4be7-9767-4828e8b2d871"
+					}]
+			},
+			"streamSettings":	{
+				"network":	"ws",
+				"security":	"tls",
+				"tlsSettings":	{
+					"fingerprint":	"random",
+					"serverName":	"www.mvp.abrdns.com",
+					"fragment":	{
+						"packets":	"tlshello",
+						"length":	"10-20",
+						"interval":	"10"
+					}
+				},
+				"wsSettings":	{
+					"headers":	{
+						"Host":	"www.mvp.abrdns.com"
+					},
+					"path":	"/?ed=2560"
+				}
+			},
+			"tag":	"trojan-mvp.abrdns.com"
+		}, {
+			"domainStrategy":	"AsIs",
+			"protocol":	"vless",
+			"settings":	{
+				"vnext":	[{
+						"address":	"104.24.84.86",
+						"port":	443,
+						"users":	[{
+								"encryption":	"none",
+								"id":	"c06ba41d-ddd3-454f-bb87-b06f9ddc5e89"
+							}]
+					}]
+			},
+			"streamSettings":	{
+				"network":	"ws",
+				"security":	"tls",
+				"tlsSettings":	{
+					"fingerprint":	"random",
+					"serverName":	"vip.edu.ezpz.work",
+					"fragment":	{
+						"packets":	"tlshello",
+						"length":	"10-20",
+						"interval":	"10"
+					}
+				},
+				"wsSettings":	{
+					"headers":	{
+						"Host":	"vip.edu.ezpz.work"
+					},
+					"path":	"/?ed=2560"
+				}
+			},
+			"tag":	"proxy"
+		}, {
+			"domainStrategy":	"",
+			"protocol":	"freedom",
+			"tag":	"direct"
+		}, {
+			"domainStrategy":	"",
+			"protocol":	"freedom",
+			"tag":	"bypass"
+		}, {
+			"protocol":	"blackhole",
+			"tag":	"block"
+		}, {
+			"protocol":	"dns",
+			"proxySettings":	{
+				"tag":	"proxy",
+				"transportLayer":	true
+			},
+			"settings":	{
+				"address":	"8.8.8.8",
+				"network":	"tcp",
+				"port":	53,
+				"userLevel":	1
+			},
+			"tag":	"dns-out"
+		}],
+	"policy":	{
+		"levels":	{
+			"1":	{
+				"connIdle":	30
+			}
+		},
+		"system":	{
+			"statsOutboundDownlink":	true,
+			"statsOutboundUplink":	true
+		}
+	},
+	"routing":	{
+		"domainStrategy":	"AsIs",
+		"rules":	[{
+				"inboundTag":	["socks-in", "http-in"],
+				"outboundTag":	"dns-out",
+				"port":	"53",
+				"type":	"field"
+			}, {
+				"domain":	["geosite:category-ads-all", "domain:appcenter.ms", "domain:app-measurement.com", "domain:firebase.io", "domain:crashlyCtiCs.com", "domain:google-analytics.com"],
+				"outboundTag":	"block",
+				"type":	"field"
+			}, {
+				"ip":	["geoip:cn", "geoip:private"],
+				"outboundTag":	"bypass",
+				"type":	"field"
+			}, {
+				"domain":	["geosite:cn"],
+				"outboundTag":	"bypass",
+				"type":	"field"
+			}, {
+				"outboundTag":	"vless-mvp.abrdns.com",
+				"port":	"0-65535",
+				"type":	"field"
+			}]
+	},
+	"stats":	{
+	}
+}

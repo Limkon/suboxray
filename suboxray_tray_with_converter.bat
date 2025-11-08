@@ -1,0 +1,1 @@
+tcc.exe -o suboxray_tray.exe suboxray_tray_with_converter.c -mwindows -lwininet -lcomctl32 -ladvapi32 -lshell32 >log.txt 2>&1
