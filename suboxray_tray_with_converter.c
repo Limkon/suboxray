@@ -148,7 +148,7 @@ void SetAutorun(BOOL enable);
 BOOL IsAutorunEnabled();
 // void OpenConverterHtmlFromResource(); // (--- 已移除 ---)
 char* ConvertLfToCrlf(const char* input);
-// void CreateDefaultConfig(); // (--- 已移除 ---)
+void CreateDefaultConfig(); // (--- 恢复 ---)
 BOOL WriteBufferToFileW(const wchar_t* filename, const char* buffer, long fileSize); // (--- 新增 ---)
 BOOL MoveFileCrossVolumeW(const wchar_t* lpExistingFileName, const wchar_t* lpNewFileName); // (--- 新增 ---)
 BOOL DownloadConfig(HWND hWndMain, const wchar_t* url, const wchar_t* savePath); // (--- 修改：增加 hWndMain 参数 ---)
@@ -872,6 +872,10 @@ void SafeReplaceOutbound(const wchar_t* newTag) {
     free(newTagMb);
 }
 
+// =========================================================================
+// (--- 已修改：移除混合逻辑，菜单项始终可用 ---)
+// (--- 已修改：移除节点转换及多余的分隔线 ---)
+// =========================================================================
 void UpdateMenu() {
     if (hMenu) DestroyMenu(hMenu);
     if (hNodeSubMenu) DestroyMenu(hNodeSubMenu);
@@ -897,7 +901,11 @@ void UpdateMenu() {
     AppendMenuW(hMenu, MF_SEPARATOR, 0, NULL);
     AppendMenuW(hMenu, MF_STRING, ID_TRAY_EXIT, L"退出");
 }
+// --- 重构结束 ---
 
+
+// --- 重构：修改 WndProc (移除自动切换节点) ---
+// --- 已修改：移除节点转换 ---
 LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     // 自动重启的冷却计时器
     static time_t lastAutoRestart = 0;
@@ -1090,8 +1098,192 @@ BOOL IsAutorunEnabled() {
 // (--- 已移除：OpenConverterHtmlFromResource 函数 ---)
 
 // =========================================================================
-// (--- 已移除：CreateDefaultConfig 函数 ---)
+// (--- 恢复：生成默认配置文件 ---)
+// (--- 已修改：使用用户提供的 Xray config.json 作为模板，并使用占位符 ---)
 // =========================================================================
+void CreateDefaultConfig() {
+    const char* defaultConfig =
+        "{\n"
+        "    \"dns\": {\n"
+        "        \"disableFallback\": true,\n"
+        "        \"servers\": [\n"
+        "            {\n"
+        "                \"address\": \"https://8.8.8.8/dns-query\",\n"
+        "                \"domains\": [],\n"
+        "                \"queryStrategy\": \"\"\n"
+        "            },\n"
+        "            {\n"
+        "                \"address\": \"localhost\",\n"
+        "                \"domains\": [\"geosite:cn\"],\n"
+        "                \"queryStrategy\": \"\"\n"
+        "            }\n"
+        "        ],\n"
+        "        \"tag\": \"dns\"\n"
+        "    },\n"
+        "    \"inbounds\": [\n"
+        "        {\n"
+        "            \"listen\": \"127.0.0.1\",\n"
+        "            \"port\": 10808,\n"
+        "            \"protocol\": \"socks\",\n"
+        "            \"settings\": {\n"
+        "                \"udp\": true\n"
+        "            },\n"
+        "            \"sniffing\": {\n"
+        "                \"destOverride\": [\"http\", \"tls\", \"quic\"],\n"
+        "                \"enabled\": true,\n"
+        "                \"metadataOnly\": false,\n"
+        "                \"routeOnly\": true\n"
+        "            },\n"
+        "            \"tag\": \"socks-in\"\n"
+        "        },\n"
+        "        {\n"
+        "            \"listen\": \"127.0.0.1\",\n"
+        "            \"port\": 10809,\n"
+        "            \"protocol\": \"http\",\n"
+        "            \"sniffing\": {\n"
+        "                \"destOverride\": [\"http\", \"tls\", \"quic\"],\n"
+        "                \"enabled\": true,\n"
+        "                \"metadataOnly\": false,\n"
+        "                \"routeOnly\": true\n"
+        "            },\n"
+        "            \"tag\": \"http-in\"\n"
+        "        }\n"
+        "    ],\n"
+        "    \"log\": {\n"
+        "        \"loglevel\": \"warning\"\n"
+        "    },\n"
+        "    \"outbounds\": [\n"
+        "        {\n"
+        "            \"protocol\": \"vless\",\n"
+        "            \"settings\": {\n"
+        "                \"vnext\": [\n"
+        "                    {\n"
+        "                        \"address\": \"YOUR_SERVER_ADDRESS\",\n"
+        "                        \"port\": 443,\n"
+        "                        \"users\": [\n"
+        "                            {\n"
+        "                                \"encryption\": \"none\",\n"
+        "                                \"id\": \"YOUR_UUID_HERE\"\n"
+        "                            }\n"
+        "                        ]\n"
+        "                    }\n"
+        "                ]\n"
+        "            },\n"
+        "            \"streamSettings\": {\n"
+        "                \"network\": \"ws\",\n"
+        "                \"security\": \"tls\",\n"
+        "                \"tlsSettings\": {\n"
+        "                    \"fingerprint\": \"random\",\n"
+        "                    \"serverName\": \"YOUR_SNI_HERE\",\n"
+        "                    \"fragment\": {\n"
+        "                        \"packets\": \"tlshello\",\n"
+        "                        \"length\": \"10-20\",\n"
+        "                        \"interval\": \"10\"\n"
+        "                    }\n"
+        "                },\n"
+        "                \"wsSettings\": {\n"
+        "                    \"headers\": {\n"
+        "                        \"Host\": \"YOUR_WEBSOCKET_HOST_HERE\"\n"
+        "                    },\n"
+        "                    \"path\": \"/YOUR-WEBSOCKET-PATH\"\n"
+        "                }\n"
+        "            },\n"
+        "            \"tag\": \"proxy\" \n"
+        "        },\n"
+        "        {\n"
+        "            \"domainStrategy\": \"\",\n"
+        "            \"protocol\": \"freedom\",\n"
+        "            \"tag\": \"direct\"\n"
+        "        },\n"
+        "        {\n"
+        "            \"domainStrategy\": \"\",\n"
+        "            \"protocol\": \"freedom\",\n"
+        "            \"tag\": \"bypass\"\n"
+        "        },\n"
+        "        {\n"
+        "            \"protocol\": \"blackhole\",\n"
+        "            \"tag\": \"block\"\n"
+        "        },\n"
+        "        {\n"
+        "            \"protocol\": \"dns\",\n"
+        "            \"proxySettings\": {\n"
+        "                \"tag\": \"proxy\",\n"
+        "                \"transportLayer\": true\n"
+        "            },\n"
+        "            \"settings\": {\n"
+        "                \"address\": \"8.8.8.8\",\n"
+        "                \"network\": \"tcp\",\n"
+        "                \"port\": 53,\n"
+        "                \"userLevel\": 1\n"
+        "            },\n"
+        "            \"tag\": \"dns-out\"\n"
+        "        }\n"
+        "    ],\n"
+        "    \"policy\": {\n"
+        "        \"levels\": {\n"
+        "            \"1\": {\n"
+        "                \"connIdle\": 30\n"
+        "            }\n"
+        "        },\n"
+        "        \"system\": {\n"
+        "            \"statsOutboundDownlink\": true,\n"
+        "            \"statsOutboundUplink\": true\n"
+        "        }\n"
+        "    },\n"
+        "    \"routing\": {\n"
+        "        \"domainStrategy\": \"AsIs\",\n"
+        "        \"rules\": [\n"
+        "            {\n"
+        "                \"inboundTag\": [\"socks-in\", \"http-in\"],\n"
+        "                \"outboundTag\": \"dns-out\",\n"
+        "                \"port\": \"53\",\n"
+        "                \"type\": \"field\"\n"
+        "            },\n"
+        "            {\n"
+        "                \"domain\": [\n"
+        "                    \"geosite:category-ads-all\",\n"
+        "                    \"domain:appcenter.ms\",\n"
+        "                    \"domain:app-measurement.com\",\n"
+        "                    \"domain:firebase.io\",\n"
+        "                    \"domain:crashlytics.com\",\n"
+        "                    \"domain:google-analytics.com\"\n"
+        "                ],\n"
+        "                \"outboundTag\": \"block\",\n"
+        "                \"type\": \"field\"\n"
+        "            },\n"
+        "            {\n"
+        "                \"ip\": [\"geoip:cn\", \"geoip:private\"],\n"
+        "                \"outboundTag\": \"bypass\",\n"
+        "                \"type\": \"field\"\n"
+        "            },\n"
+        "            {\n"
+        "                \"domain\": [\"geosite:cn\"],\n"
+        "                \"outboundTag\": \"bypass\",\n"
+        "                \"type\": \"field\"\n"
+        "            },\n"
+        "            {\n"
+        "                \"outboundTag\": \"proxy\",\n"
+        "                \"port\": \"0-65535\",\n"
+        "                \"type\": \"field\"\n"
+        "            }\n"
+        "        ]\n"
+        "    },\n"
+        "    \"stats\": {}\n"
+        "}";
+
+    FILE* f = NULL;
+    if (_wfopen_s(&f, L"config.json", L"wb") == 0 && f != NULL) {
+        fwrite(defaultConfig, 1, strlen(defaultConfig), f);
+        fclose(f);
+        MessageBoxW(NULL,
+            L"未找到 config.json，已为您生成默认配置文件。\n\n"
+            L"请在使用前修改 config.json 中的 'proxy' 节点信息 (占位符)。", // (--- 已修改提示 ---)
+            L"提示", MB_OK | MB_ICONINFORMATION);
+    } else {
+        MessageBoxW(NULL, L"无法创建默认的 config.json 文件。", L"错误", MB_OK | MB_ICONERROR);
+    }
+}
+
 
 // =========================================================================
 // (--- 新增：辅助函数，将内存缓冲区写入文件 ---)
@@ -1367,7 +1559,7 @@ LRESULT CALLBACK NodeManagerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM l
                 HMENU hContextMenu = CreatePopupMenu();
                 AppendMenuW(hContextMenu, MF_STRING, ID_NODEMGR_CONTEXT_PIN_NODE, L"置顶节点");
                 AppendMenuW(hContextMenu, MF_STRING, ID_NODEMGR_CONTEXT_SORT_NODES, L"节点排序");
-                AppendMenuW(hContextMenu, MF_STRING, ID_NODEMGR_CONTEXT_DEDUPLICATE, L"节点去重 (内容)");
+                AppendMenuW(hContextMenu, MF_STRING, ID_NODEMGR_CONTEXT_DEDUPLICATE, L"节点去重 ");
                 // 移除了 "修复重复标签" 菜单项 (已改为启动时自动修复)
                 AppendMenuW(hContextMenu, MF_SEPARATOR, 0, NULL);
                 AppendMenuW(hContextMenu, MF_STRING, ID_NODEMGR_CONTEXT_SELECT_ALL, L"全部选择");
@@ -2724,7 +2916,7 @@ void OpenLogViewerWindow() {
 // =========================================================================
 // (--- 新增：异步初始化工作线程 ---)
 // (--- 已修改：DownloadConfig 调用 ---)
-// (--- 已修改：移除 CreateDefaultConfig 调用 ---)
+// (--- 已修改：恢复 CreateDefaultConfig 调用 ---)
 // =========================================================================
 DWORD WINAPI InitThread(LPVOID lpParam) {
     HWND hWndMain = (HWND)lpParam;
@@ -2765,12 +2957,8 @@ DWORD WINAPI InitThread(LPVOID lpParam) {
             // 下载失败 -> 检查缓存
             DWORD fileAttrCache = GetFileAttributesW(configPath);
             if (fileAttrCache == INVALID_FILE_ATTRIBUTES || (fileAttrCache & FILE_ATTRIBUTE_DIRECTORY)) {
-                 // (--- 已移除：CreateDefaultConfig(); ---)
-                 // (--- 新增：无缓存且下载失败，则提示错误并退出 ---)
-                 MessageBoxW(NULL, 
-                    L"启动失败：无法从 URL 下载配置，且本地 config.json 不存在。",
-                    L"配置错误", MB_OK | MB_ICONERROR);
-                 THREAD_CLEANUP_AND_EXIT(FALSE);
+                 // (--- 恢复：创建默认配置 ---)
+                 CreateDefaultConfig();
             }
             // (--- 清理临时文件 ---)
             if (tempConfigPath[0] != L'\0') {
@@ -2817,13 +3005,8 @@ DWORD WINAPI InitThread(LPVOID lpParam) {
         // --- 模式1：本地配置 ---
         DWORD fileAttr = GetFileAttributesW(configPath);
         if (fileAttr == INVALID_FILE_ATTRIBUTES && GetLastError() == ERROR_FILE_NOT_FOUND) {
-            // (--- 已移除：CreateDefaultConfig(); ---)
-            // (--- 新增：本地模式下文件不存在，提示错误并退出 ---)
-            MessageBoxW(NULL, 
-                L"启动失败：config.json 文件未找到。\n\n"
-                L"请确保 config.json 与 xray_tray.exe 位于同一目录。",
-                L"配置文件缺失", MB_OK | MB_ICONERROR);
-            THREAD_CLEANUP_AND_EXIT(FALSE);
+            // (--- 恢复：创建默认配置 ---)
+            CreateDefaultConfig();
         }
     }
 
