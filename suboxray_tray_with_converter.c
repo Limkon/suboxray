@@ -875,17 +875,30 @@ void SafeReplaceOutbound(const wchar_t* newTag) {
 // =========================================================================
 // (--- 已修改：移除混合逻辑，菜单项始终可用 ---)
 // (--- 已修改：移除节点转换及多余的分隔线 ---)
+// (--- 已修改：隐藏以 . 开头的节点 ---)
 // =========================================================================
 void UpdateMenu() {
     if (hMenu) DestroyMenu(hMenu);
     if (hNodeSubMenu) DestroyMenu(hNodeSubMenu);
     hMenu = CreatePopupMenu();
     hNodeSubMenu = CreatePopupMenu();
+    
+    // (--- 修改开始 ---)
+    // 遍历所有节点
     for (int i = 0; i < nodeCount; ++i) {
+        
+        // 检查 tag 是否有效且是否以 L'.' 开头
+        if (nodeTags[i] != NULL && nodeTags[i][0] == L'.') {
+            continue; // 如果是，则跳过，不添加到菜单
+        }
+
+        // (--- 原有逻辑 ---)
         UINT flags = MF_STRING;
         if (wcscmp(nodeTags[i], currentNode) == 0) { flags |= MF_CHECKED; }
         AppendMenuW(hNodeSubMenu, flags, ID_TRAY_NODE_BASE + i, nodeTags[i]);
     }
+    // (--- 修改结束 ---)
+
     AppendMenuW(hMenu, MF_POPUP, (UINT_PTR)hNodeSubMenu, L"切换节点");
 
     // (--- 已修改：节点管理始终可用 ---)
@@ -902,7 +915,6 @@ void UpdateMenu() {
     AppendMenuW(hMenu, MF_STRING, ID_TRAY_EXIT, L"退出");
 }
 // --- 重构结束 ---
-
 
 // --- 重构：修改 WndProc (移除自动切换节点) ---
 // --- 已修改：移除节点转换 ---
