@@ -414,11 +414,12 @@ void OpenSettingsWindow() {
 
 // =========================================================================
 // (已修改) 解析 config.json 以获取节点列表和当前节点 (适配 Xray)
+// (智能化修改) 适配 "mixed" 协议作为 HTTP 代理端口
 // =========================================================================
 BOOL ParseTags() {
     CleanupDynamicNodes();
     currentNode[0] = L'\0';
-    httpPort = 0;
+    httpPort = 0; // (--- 关键：确保每次解析前重置 ---)
     char* buffer = NULL;
     long size = 0;
     if (!ReadFileToBuffer(L"config.json", &buffer, &size)) {
@@ -478,20 +479,38 @@ BOOL ParseTags() {
         }
     }
 
-    // 3. (--- 适配 Xray ---) 解析 "inbounds" 获取 HTTP 端口
-    //    (Sing-box 使用 "type" 和 "listen_port")
+    // 3. (--- 适配 Xray / 智能化修改 ---) 解析 "inbounds" 获取 HTTP 或 Mixed 端口
     cJSON* inbounds = cJSON_GetObjectItem(root, "inbounds");
     cJSON* inbound = NULL;
+    
+    // 优先查找 "http" 协议
     cJSON_ArrayForEach(inbound, inbounds) {
         cJSON* protocol = cJSON_GetObjectItem(inbound, "protocol");
         if (cJSON_IsString(protocol) && strcmp(protocol->valuestring, "http") == 0) {
             cJSON* port = cJSON_GetObjectItem(inbound, "port");
             if (cJSON_IsNumber(port)) {
                 httpPort = port->valueint;
-                break;
+                break; // 找到 http，跳出循环
             }
         }
     }
+
+    // 如果没有找到 "http" (httpPort 仍然是 0)，则查找 "mixed" 协议
+    if (httpPort == 0) {
+        cJSON_ArrayForEach(inbound, inbounds) {
+            cJSON* protocol = cJSON_GetObjectItem(inbound, "protocol");
+            if (cJSON_IsString(protocol) && strcmp(protocol->valuestring, "mixed") == 0) {
+                cJSON* port = cJSON_GetObjectItem(inbound, "port");
+                if (cJSON_IsNumber(port)) {
+                    httpPort = port->valueint;
+                    break; // 找到 mixed，跳出循环
+                }
+            }
+        }
+    }
+    // (--- 智能化修改结束 ---)
+
+
     cJSON_Delete(root);
     free(buffer);
     return TRUE;
